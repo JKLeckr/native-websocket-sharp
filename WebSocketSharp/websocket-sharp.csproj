@@ -1,0 +1,131 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.0;net35;net40</TargetFrameworks>
+    <AssemblyName>websocket-sharp</AssemblyName>
+    <Product>websocket-sharp</Product>
+    <Description>A native C# wrapper for websocket-sharp</Description>
+    <Version>0.1.0.0</Version>
+    <Copyright>Copyright 2026 JKLeckr</Copyright>
+    <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
+    <LangVersion>latest</LangVersion>
+    <Platforms>x64;x86;ARM64</Platforms>
+    <PlatformTargets>x64;x86;ARM64</PlatformTargets>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <NativeWsProjectDir>$(MSBuildProjectDirectory)\..\nativews</NativeWsProjectDir>
+    <RootProjectDir>$(MSBuildProjectDirectory)\..</RootProjectDir>
+    <NativeWsCargoProfile Condition="'$(Configuration)' == 'Release'">release</NativeWsCargoProfile>
+    <NativeWsCargoProfile Condition="'$(NativeWsCargoProfile)' == ''">debug</NativeWsCargoProfile>
+    <NativeWsCargoReleaseArg Condition="'$(NativeWsCargoProfile)' == 'release'">--release</NativeWsCargoReleaseArg>
+    <NativeWsCargoReleaseArg Condition="'$(NativeWsCargoReleaseArg)' == ''"></NativeWsCargoReleaseArg>
+    <NativeWsNativeSourceName Condition="$([MSBuild]::IsOSPlatform('Windows'))">c_wsrs.dll</NativeWsNativeSourceName>
+    <NativeWsNativeSourceName Condition="$([MSBuild]::IsOSPlatform('Linux'))">libc_wsrs.so</NativeWsNativeSourceName>
+    <NativeWsNativeSourceName Condition="$([MSBuild]::IsOSPlatform('OSX'))">libc_wsrs.dylib</NativeWsNativeSourceName>
+    <NativeWsNativePdbSourceName Condition="$([MSBuild]::IsOSPlatform('Windows'))">c_wsrs.pdb</NativeWsNativePdbSourceName>
+    <NativeWsArchNix Condition="'$(PlatformTarget)' == 'x86'">x86</NativeWsArchNix>
+    <NativeWsArchNix Condition="'$(NativeWsArchNix)' == ''">amd64</NativeWsArchNix>
+    <NativeWsNativeDestName Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(PlatformTarget)' == 'x86'">nativews-win32.dll</NativeWsNativeDestName>
+    <NativeWsNativeDestName Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(NativeWsNativeDestName)' == ''">nativews-win64.dll</NativeWsNativeDestName>
+    <NativeWsNativeDestName Condition="$([MSBuild]::IsOSPlatform('Linux'))">nativews-linux-$(NativeWsArchNix).so</NativeWsNativeDestName>
+    <NativeWsNativeDestName Condition="$([MSBuild]::IsOSPlatform('OSX'))">nativews-macos-universal.dylib</NativeWsNativeDestName>
+    <NativeWsNativePdbDestName Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(PlatformTarget)' == 'x86'">nativews-win32.pdb</NativeWsNativePdbDestName>
+    <NativeWsNativePdbDestName Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(NativeWsNativePdbDestName)' == ''">nativews-win64.pdb</NativeWsNativePdbDestName>
+    <NativeWsNativeSourcePath>$(NativeWsProjectDir)\target\$(NativeWsCargoProfile)\$(NativeWsNativeSourceName)</NativeWsNativeSourcePath>
+    <NativeWsNativePdbSourcePath>$(NativeWsProjectDir)\target\$(NativeWsCargoProfile)\$(NativeWsNativePdbSourceName)</NativeWsNativePdbSourcePath>
+    <RootLicensePath>$(RootProjectDir)\LICENSE.txt</RootLicensePath>
+    <NativeWsLicensePath>$(NativeWsProjectDir)\LICENSE.txt</NativeWsLicensePath>
+    <NativeWsThirdPartyLicensePath>$(NativeWsProjectDir)\LICENSE.3rd-party.txt</NativeWsThirdPartyLicensePath>
+    <BundledRootLicenseName>LICENSE.txt</BundledRootLicenseName>
+    <BundledNativeWsLicenseName>LICENSE.nativews.txt</BundledNativeWsLicenseName>
+    <BundledNativeWsThirdPartyLicenseName>LICENSE.nativews.3rd-party.txt</BundledNativeWsThirdPartyLicenseName>
+  </PropertyGroup>
+
+  <Target Name="BuildNativeWsNative"
+          BeforeTargets="Build"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(IsCrossTargetingBuild)' != 'true' and '$(TargetFramework)' != ''">
+    <Exec WorkingDirectory="$(NativeWsProjectDir)"
+          Command="cargo build $(NativeWsCargoReleaseArg)" />
+  </Target>
+
+  <Target Name="CopyNativeWsNative"
+          AfterTargets="Build"
+          DependsOnTargets="BuildNativeWsNative"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(IsCrossTargetingBuild)' != 'true' and '$(TargetFramework)' != '' and Exists('$(NativeWsNativeSourcePath)')">
+    <PropertyGroup>
+      <NativeWsManagedOutputDir Condition="'$(TargetDir)' != ''">$(TargetDir)</NativeWsManagedOutputDir>
+      <NativeWsManagedOutputDir Condition="'$(NativeWsManagedOutputDir)' == '' and '$(TargetPath)' != ''">$([System.IO.Path]::GetDirectoryName('$(TargetPath)'))\</NativeWsManagedOutputDir>
+      <NativeWsNativeDestPath>$(NativeWsManagedOutputDir)$(NativeWsNativeDestName)</NativeWsNativeDestPath>
+      <NativeWsNativePdbDestPath>$(NativeWsManagedOutputDir)$(NativeWsNativePdbDestName)</NativeWsNativePdbDestPath>
+    </PropertyGroup>
+    <MakeDir Directories="$(NativeWsManagedOutputDir)" />
+    <Message Importance="high" Text="Copying native library $(NativeWsNativeSourcePath) -> $(NativeWsNativeDestPath)" />
+    <Copy SourceFiles="$(NativeWsNativeSourcePath)"
+          DestinationFiles="$(NativeWsNativeDestPath)"
+          SkipUnchangedFiles="true" />
+    <Message Importance="high"
+             Text="Copying native symbols $(NativeWsNativePdbSourcePath) -> $(NativeWsNativePdbDestPath)"
+             Condition="'$(Configuration)' == 'Debug' and $([MSBuild]::IsOSPlatform('Windows')) and Exists('$(NativeWsNativePdbSourcePath)')" />
+    <Copy SourceFiles="$(NativeWsNativePdbSourcePath)"
+          DestinationFiles="$(NativeWsNativePdbDestPath)"
+          SkipUnchangedFiles="true"
+          Condition="'$(Configuration)' == 'Debug' and $([MSBuild]::IsOSPlatform('Windows')) and Exists('$(NativeWsNativePdbSourcePath)')" />
+  </Target>
+
+  <Target Name="CopyNativeWsLicenses"
+          AfterTargets="Build"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(IsCrossTargetingBuild)' != 'true' and '$(TargetFramework)' != ''">
+    <PropertyGroup>
+      <NativeWsManagedOutputDir Condition="'$(TargetDir)' != ''">$(TargetDir)</NativeWsManagedOutputDir>
+      <NativeWsManagedOutputDir Condition="'$(NativeWsManagedOutputDir)' == '' and '$(TargetPath)' != ''">$([System.IO.Path]::GetDirectoryName('$(TargetPath)'))\</NativeWsManagedOutputDir>
+    </PropertyGroup>
+    <MakeDir Directories="$(NativeWsManagedOutputDir)" />
+
+    <ItemGroup>
+      <BundledLicense Include="$(RootLicensePath)" Condition="Exists('$(RootLicensePath)')">
+        <DestName>$(BundledRootLicenseName)</DestName>
+      </BundledLicense>
+      <BundledLicense Include="$(NativeWsLicensePath)" Condition="Exists('$(NativeWsLicensePath)')">
+        <DestName>$(BundledNativeWsLicenseName)</DestName>
+      </BundledLicense>
+      <BundledLicense Include="$(NativeWsThirdPartyLicensePath)" Condition="Exists('$(NativeWsThirdPartyLicensePath)')">
+        <DestName>$(BundledNativeWsThirdPartyLicenseName)</DestName>
+      </BundledLicense>
+    </ItemGroup>
+
+    <ReadLinesFromFile File="$(RootLicensePath)" Condition="Exists('$(RootLicensePath)')">
+      <Output TaskParameter="Lines" ItemName="RootLicenseLines" />
+    </ReadLinesFromFile>
+    <ReadLinesFromFile File="$(NativeWsLicensePath)" Condition="Exists('$(NativeWsLicensePath)')">
+      <Output TaskParameter="Lines" ItemName="NativeWsLicenseLines" />
+    </ReadLinesFromFile>
+    <ReadLinesFromFile File="$(NativeWsThirdPartyLicensePath)" Condition="Exists('$(NativeWsThirdPartyLicensePath)')">
+      <Output TaskParameter="Lines" ItemName="NativeWsThirdPartyLicenseLines" />
+    </ReadLinesFromFile>
+
+    <ItemGroup>
+      <RootBundledLicenseLines Include="@(RootLicenseLines->Replace('native/LICENSE.3rd-party.txt', '$(BundledNativeWsThirdPartyLicenseName)')->Replace('native/LICENSE', '$(BundledNativeWsLicenseName)'))" />
+      <NativeWsBundledLicenseLines Include="@(NativeWsLicenseLines)" />
+      <NativeWsThirdPartyBundledLicenseLines Include="@(NativeWsThirdPartyLicenseLines->Replace('See LICENSE.txt', 'See $(BundledNativeWsLicenseName)'))" />
+    </ItemGroup>
+
+    <Message Importance="high" Text="Bundling license $(RootLicensePath) -> $(NativeWsManagedOutputDir)$(BundledRootLicenseName)" Condition="Exists('$(RootLicensePath)')" />
+    <WriteLinesToFile File="$(NativeWsManagedOutputDir)$(BundledRootLicenseName)"
+                      Lines="@(RootBundledLicenseLines)"
+                      Overwrite="true"
+                      Condition="Exists('$(RootLicensePath)')" />
+    <Message Importance="high" Text="Bundling license $(NativeWsLicensePath) -> $(NativeWsManagedOutputDir)$(BundledNativeWsLicenseName)" Condition="Exists('$(NativeWsLicensePath)')" />
+    <WriteLinesToFile File="$(NativeWsManagedOutputDir)$(BundledNativeWsLicenseName)"
+                      Lines="@(NativeWsBundledLicenseLines)"
+                      Overwrite="true"
+                      Condition="Exists('$(NativeWsLicensePath)')" />
+    <Message Importance="high" Text="Bundling license $(NativeWsThirdPartyLicensePath) -> $(NativeWsManagedOutputDir)$(BundledNativeWsThirdPartyLicenseName)" Condition="Exists('$(NativeWsThirdPartyLicensePath)')" />
+    <WriteLinesToFile File="$(NativeWsManagedOutputDir)$(BundledNativeWsThirdPartyLicenseName)"
+                      Lines="@(NativeWsThirdPartyBundledLicenseLines)"
+                      Overwrite="true"
+                      Condition="Exists('$(NativeWsThirdPartyLicensePath)')" />
+  </Target>
+
+</Project>
