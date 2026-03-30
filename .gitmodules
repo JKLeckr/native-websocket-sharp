@@ -1,0 +1,3 @@
+[submodule "nativews/lib/tungstenite"]
+	path = nativews/lib/tungstenite
+	url = https://github.com/JKLeckr/tungstenite-rs.git
