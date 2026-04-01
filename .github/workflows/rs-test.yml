@@ -1,0 +1,76 @@
+name: Native Cargo Test
+
+on:
+  push:
+    paths:
+      - "**.rs"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - ".github/workflows/test.yml"
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - "**.rs"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - ".github/workflows/test.yml"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: "windows-latest"
+            arch: "x86_64"
+            target: "x86_64-pc-windows-msvc"
+          - os: "windows-latest"
+            arch: "i686"
+            target: "i686-pc-windows-msvc"
+          - os: "macos-15"
+            arch: "x86_64"
+            target: "x86_64-apple-darwin"
+          - os: "macos-15"
+            arch: "aarch64"
+            target: "aarch64-apple-darwin"
+          - os: "ubuntu-22.04"
+            arch: "x86_64"
+            target: "x86_64-unknown-linux-gnu"
+          - os: "ubuntu-24.04"
+            arch: "x86_64"
+            target: "x86_64-unknown-linux-gnu"
+
+    name: rust-test_${{ matrix.os }}_${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: ${{ matrix.target }}
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: nativews -> target
+
+      - name: Fetch
+        working-directory: ./nativews
+        run: cargo fetch
+
+      - name: Build
+        working-directory: ./nativews
+        run: cargo build --target ${{ matrix.target }}
+
+      - name: Test
+        working-directory: ./nativews
+        run: cargo test --all-features --target ${{ matrix.target }}
