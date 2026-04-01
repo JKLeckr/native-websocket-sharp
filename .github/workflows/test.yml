@@ -1,0 +1,133 @@
+name: Test
+
+on:
+  push:
+    paths:
+      - "**.cs"
+      - "**.csproj"
+      - "**.slnx"
+      - "**.rs"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - ".github/workflows/test.yml"
+  pull_request:
+    paths:
+      - "**.cs"
+      - "**.csproj"
+      - "**.slnx"
+      - "**.rs"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - ".github/workflows/test.yml"
+  workflow_dispatch:
+
+jobs:
+  test-windows:
+    name: test-windows
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore + clean
+        run: |
+          dotnet restore
+          dotnet clean
+
+      - name: Build nativews
+        working-directory: ./nativews
+        run: |
+          cargo build --target x86_64-pc-windows-msvc
+
+      - name: Run xUnit tests
+        run: |
+          dotnet test --project .\WebSocketSharp.Tests\ -c Debug -f net8.0 --no-restore
+
+  test-linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-22.04", "ubuntu-24.04"]
+
+    name: test-linux ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore + clean
+        run: |
+          dotnet restore
+          dotnet clean
+
+      - name: Build nativews
+        working-directory: ./nativews
+        run: |
+          cargo build --target x86_64-unknown-linux-gnu
+
+      - name: Run xUnit tests
+        run: |
+          dotnet test --project ./WebSocketSharp.Tests/ -c Debug -f net8.0 --no-restore
+
+  test-macos:
+    name: test-macos
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore + clean
+        run: |
+          dotnet restore
+          dotnet clean
+
+      - name: Build nativews
+        working-directory: ./nativews
+        run: |
+          cargo build --target x86_64-apple-darwin
+          cargo build --target aarch64-apple-darwin
+
+      - name: Run xUnit tests
+        run: |
+          dotnet test --project ./WebSocketSharp.Tests/ -c Debug -f net8.0 --no-restore
