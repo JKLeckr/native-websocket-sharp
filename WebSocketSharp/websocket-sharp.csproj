@@ -15,30 +15,62 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <NativeWsProjectDir>$(MSBuildProjectDirectory)\..\nativews</NativeWsProjectDir>
-    <RootProjectDir>$(MSBuildProjectDirectory)\..</RootProjectDir>
+    <NativeWsProjectDir>$(MSBuildProjectDirectory)/../nativews</NativeWsProjectDir>
+    <RootProjectDir>$(MSBuildProjectDirectory)/..</RootProjectDir>
     <NativeWsCargoProfile Condition="'$(Configuration)' == 'Release'">release</NativeWsCargoProfile>
     <NativeWsCargoProfile Condition="'$(NativeWsCargoProfile)' == ''">debug</NativeWsCargoProfile>
     <NativeWsCargoReleaseArg Condition="'$(NativeWsCargoProfile)' == 'release'">--release</NativeWsCargoReleaseArg>
     <NativeWsCargoReleaseArg Condition="'$(NativeWsCargoReleaseArg)' == ''"></NativeWsCargoReleaseArg>
-    <NativeWsNativeSourceName Condition="$([MSBuild]::IsOSPlatform('Windows'))">c_wsrs.dll</NativeWsNativeSourceName>
-    <NativeWsNativeSourceName Condition="$([MSBuild]::IsOSPlatform('Linux'))">libc_wsrs.so</NativeWsNativeSourceName>
-    <NativeWsNativeSourceName Condition="$([MSBuild]::IsOSPlatform('OSX'))">libc_wsrs.dylib</NativeWsNativeSourceName>
-    <NativeWsNativePdbSourceName Condition="$([MSBuild]::IsOSPlatform('Windows'))">c_wsrs.pdb</NativeWsNativePdbSourceName>
-    <NativeWsArchNix Condition="'$(PlatformTarget)' == 'x86'">x86</NativeWsArchNix>
-    <NativeWsArchNix Condition="'$(NativeWsArchNix)' == ''">amd64</NativeWsArchNix>
-    <NativeWsNativeDestName Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(PlatformTarget)' == 'x86'">nativews-win32.dll</NativeWsNativeDestName>
-    <NativeWsNativeDestName Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(NativeWsNativeDestName)' == ''">nativews-win64.dll</NativeWsNativeDestName>
-    <NativeWsNativeDestName Condition="$([MSBuild]::IsOSPlatform('Linux'))">nativews-linux-$(NativeWsArchNix).so</NativeWsNativeDestName>
-    <NativeWsNativeDestName Condition="$([MSBuild]::IsOSPlatform('OSX'))">nativews-macos-universal.dylib</NativeWsNativeDestName>
-    <NativeWsNativePdbDestName Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(PlatformTarget)' == 'x86'">nativews-win32.pdb</NativeWsNativePdbDestName>
-    <NativeWsNativePdbDestName Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(NativeWsNativePdbDestName)' == ''">nativews-win64.pdb</NativeWsNativePdbDestName>
-    <NativeWsNativeSourcePath>$(NativeWsProjectDir)\target\$(NativeWsCargoProfile)\$(NativeWsNativeSourceName)</NativeWsNativeSourcePath>
-    <NativeWsNativePdbSourcePath>$(NativeWsProjectDir)\target\$(NativeWsCargoProfile)\$(NativeWsNativePdbSourceName)</NativeWsNativePdbSourcePath>
-    <RootLicensePath>$(RootProjectDir)\LICENSE.txt</RootLicensePath>
-    <NativeWsLicensePath>$(NativeWsProjectDir)\LICENSE.txt</NativeWsLicensePath>
-    <NativeWsThirdPartyLicensePath>$(NativeWsProjectDir)\LICENSE.3rd-party.txt</NativeWsThirdPartyLicensePath>
+    <NativeWsTargetOs Condition="'$(RuntimeIdentifier)' != '' and $([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win'))">windows</NativeWsTargetOs>
+    <NativeWsTargetOs Condition="'$(RuntimeIdentifier)' != '' and $([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('linux'))">linux</NativeWsTargetOs>
+    <NativeWsTargetOs Condition="'$(RuntimeIdentifier)' != '' and $([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('osx'))">macos</NativeWsTargetOs>
+    <NativeWsTargetOs Condition="'$(NativeWsTargetOs)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">windows</NativeWsTargetOs>
+    <NativeWsTargetOs Condition="'$(NativeWsTargetOs)' == '' and $([MSBuild]::IsOSPlatform('Linux'))">linux</NativeWsTargetOs>
+    <NativeWsTargetOs Condition="'$(NativeWsTargetOs)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">macos</NativeWsTargetOs>
+    <NativeWsTargetArch Condition="'$(RuntimeIdentifier)' != '' and ($([System.String]::Copy('$(RuntimeIdentifier)').Contains('-x86')) or $([System.String]::Copy('$(RuntimeIdentifier)').EndsWith('x86')))">x86</NativeWsTargetArch>
+    <NativeWsTargetArch Condition="'$(RuntimeIdentifier)' != '' and ($([System.String]::Copy('$(RuntimeIdentifier)').Contains('-arm64')) or $([System.String]::Copy('$(RuntimeIdentifier)').EndsWith('arm64')))">arm64</NativeWsTargetArch>
+    <NativeWsTargetArch Condition="'$(RuntimeIdentifier)' != '' and '$(NativeWsTargetArch)' == ''">x64</NativeWsTargetArch>
+    <NativeWsTargetArch Condition="'$(NativeWsTargetArch)' == '' and '$(NativeWsTargetOs)' == 'macos' and '$(RuntimeIdentifier)' == ''">universal</NativeWsTargetArch>
+    <NativeWsTargetArch Condition="'$(NativeWsTargetArch)' == '' and ('$(PlatformTarget)' == 'x86' or '$(PlatformTarget)' == 'X86')">x86</NativeWsTargetArch>
+    <NativeWsTargetArch Condition="'$(NativeWsTargetArch)' == '' and ('$(PlatformTarget)' == 'ARM64' or '$(PlatformTarget)' == 'arm64')">arm64</NativeWsTargetArch>
+    <NativeWsTargetArch Condition="'$(NativeWsTargetArch)' == ''">x64</NativeWsTargetArch>
+    <NativeWsCargoTarget Condition="'$(NativeWsTargetOs)' == 'windows' and '$(NativeWsTargetArch)' == 'x86'">i686-pc-windows-msvc</NativeWsCargoTarget>
+    <NativeWsCargoTarget Condition="'$(NativeWsTargetOs)' == 'windows' and '$(NativeWsTargetArch)' == 'x64'">x86_64-pc-windows-msvc</NativeWsCargoTarget>
+    <NativeWsCargoTarget Condition="'$(NativeWsTargetOs)' == 'windows' and '$(NativeWsTargetArch)' == 'arm64'">aarch64-pc-windows-msvc</NativeWsCargoTarget>
+    <NativeWsCargoTarget Condition="'$(NativeWsTargetOs)' == 'linux' and '$(NativeWsTargetArch)' == 'arm64'">aarch64-unknown-linux-gnu</NativeWsCargoTarget>
+    <NativeWsCargoTarget Condition="'$(NativeWsTargetOs)' == 'linux' and '$(NativeWsCargoTarget)' == ''">x86_64-unknown-linux-gnu</NativeWsCargoTarget>
+    <NativeWsCargoTarget Condition="'$(NativeWsTargetOs)' == 'macos' and '$(NativeWsTargetArch)' == 'x64'">x86_64-apple-darwin</NativeWsCargoTarget>
+    <NativeWsCargoTarget Condition="'$(NativeWsTargetOs)' == 'macos' and '$(NativeWsTargetArch)' == 'arm64'">aarch64-apple-darwin</NativeWsCargoTarget>
+    <NativeWsCargoTargetArg Condition="'$(NativeWsCargoTarget)' != ''">--target $(NativeWsCargoTarget)</NativeWsCargoTargetArg>
+    <NativeWsMacUniversalBuild Condition="'$(NativeWsTargetOs)' == 'macos' and '$(NativeWsTargetArch)' == 'universal' and $([MSBuild]::IsOSPlatform('OSX'))">true</NativeWsMacUniversalBuild>
+    <NativeWsMacUniversalSourceDir Condition="'$(NativeWsMacUniversalBuild)' == 'true'">$(NativeWsProjectDir)/target/macos-universal/$(NativeWsCargoProfile)</NativeWsMacUniversalSourceDir>
+    <NativeWsMacUniversalX64Target>x86_64-apple-darwin</NativeWsMacUniversalX64Target>
+    <NativeWsMacUniversalArm64Target>aarch64-apple-darwin</NativeWsMacUniversalArm64Target>
+    <NativeWsNativeSourceDir Condition="'$(NativeWsCargoTarget)' != ''">$(NativeWsProjectDir)/target/$(NativeWsCargoTarget)/$(NativeWsCargoProfile)</NativeWsNativeSourceDir>
+    <NativeWsNativeSourceDir Condition="'$(NativeWsMacUniversalBuild)' == 'true'">$(NativeWsMacUniversalSourceDir)</NativeWsNativeSourceDir>
+    <NativeWsNativeSourceDir Condition="'$(NativeWsNativeSourceDir)' == ''">$(NativeWsProjectDir)/target/$(NativeWsCargoProfile)</NativeWsNativeSourceDir>
+    <NativeWsNativeSourceName Condition="'$(NativeWsTargetOs)' == 'windows'">nativews.dll</NativeWsNativeSourceName>
+    <NativeWsNativeSourceName Condition="'$(NativeWsTargetOs)' == 'linux'">libnativews.so</NativeWsNativeSourceName>
+    <NativeWsNativeSourceName Condition="'$(NativeWsTargetOs)' == 'macos'">libnativews.dylib</NativeWsNativeSourceName>
+    <NativeWsNativePdbSourceName Condition="'$(NativeWsTargetOs)' == 'windows'">nativews.pdb</NativeWsNativePdbSourceName>
+    <NativeWsNativeDestName Condition="'$(NativeWsTargetOs)' == 'windows' and '$(NativeWsTargetArch)' == 'x86'">nativews-win32.dll</NativeWsNativeDestName>
+    <NativeWsNativeDestName Condition="'$(NativeWsTargetOs)' == 'windows' and '$(NativeWsTargetArch)' == 'arm64'">nativews-winarm64.dll</NativeWsNativeDestName>
+    <NativeWsNativeDestName Condition="'$(NativeWsTargetOs)' == 'windows' and '$(NativeWsNativeDestName)' == ''">nativews-win64.dll</NativeWsNativeDestName>
+    <NativeWsNativeDestName Condition="'$(NativeWsTargetOs)' == 'linux' and '$(NativeWsTargetArch)' == 'arm64'">nativews-linux-arm64.so</NativeWsNativeDestName>
+    <NativeWsNativeDestName Condition="'$(NativeWsTargetOs)' == 'linux' and '$(NativeWsNativeDestName)' == ''">nativews-linux-amd64.so</NativeWsNativeDestName>
+    <NativeWsNativeDestName Condition="'$(NativeWsTargetOs)' == 'macos'">nativews-macos-universal.dylib</NativeWsNativeDestName>
+    <NativeWsNativePdbDestName Condition="'$(NativeWsTargetOs)' == 'windows' and '$(NativeWsTargetArch)' == 'x86'">nativews-win32.pdb</NativeWsNativePdbDestName>
+    <NativeWsNativePdbDestName Condition="'$(NativeWsTargetOs)' == 'windows' and '$(NativeWsTargetArch)' == 'arm64'">nativews-winarm64.pdb</NativeWsNativePdbDestName>
+    <NativeWsNativePdbDestName Condition="'$(NativeWsTargetOs)' == 'windows' and '$(NativeWsNativePdbDestName)' == ''">nativews-win64.pdb</NativeWsNativePdbDestName>
+    <NativeWsNativeSourcePath Condition="'$(NativeWsMacUniversalBuild)' == 'true'">$(NativeWsNativeSourceDir)/$(NativeWsNativeSourceName)</NativeWsNativeSourcePath>
+    <NativeWsNativeSourcePath Condition="'$(NativeWsNativeSourcePath)' == ''">$(NativeWsNativeSourceDir)/$(NativeWsNativeSourceName)</NativeWsNativeSourcePath>
+    <NativeWsNativePdbSourcePath>$(NativeWsNativeSourceDir)/$(NativeWsNativePdbSourceName)</NativeWsNativePdbSourcePath>
+    <RootLicensePath>$(RootProjectDir)/LICENSE.txt</RootLicensePath>
+    <RootThirdPartyLicensePath>$(RootProjectDir)/LICENSE.third-party.txt</RootThirdPartyLicensePath>
+    <NativeWsLicensePath>$(NativeWsProjectDir)/LICENSE.txt</NativeWsLicensePath>
+    <NativeWsThirdPartyLicensePath>$(NativeWsProjectDir)/LICENSE.3rd-party.txt</NativeWsThirdPartyLicensePath>
     <BundledRootLicenseName>LICENSE.txt</BundledRootLicenseName>
+    <BundledRootThirdPartyLicenseName>LICENSE.third-party.txt</BundledRootThirdPartyLicenseName>
     <BundledNativeWsLicenseName>LICENSE.nativews.txt</BundledNativeWsLicenseName>
     <BundledNativeWsThirdPartyLicenseName>LICENSE.nativews.3rd-party.txt</BundledNativeWsThirdPartyLicenseName>
   </PropertyGroup>
@@ -46,8 +78,24 @@
   <Target Name="BuildNativeWsNative"
           BeforeTargets="Build"
           Condition="'$(DesignTimeBuild)' != 'true' and '$(IsCrossTargetingBuild)' != 'true' and '$(TargetFramework)' != ''">
+    <Error Condition="'$(NativeWsTargetOs)' == 'linux' and '$(NativeWsTargetArch)' == 'x86'"
+           Text="Linux x86 nativews builds are not configured. Use x64 or arm64." />
+    <Error Condition="'$(NativeWsTargetOs)' == 'macos' and '$(NativeWsTargetArch)' == 'universal' and '$(NativeWsMacUniversalBuild)' != 'true'"
+           Text="Local macOS universal builds require running the build on macOS, or specifying an explicit osx-x64/osx-arm64 RuntimeIdentifier." />
+    <MakeDir Directories="$(NativeWsMacUniversalSourceDir)"
+             Condition="'$(NativeWsMacUniversalBuild)' == 'true'" />
     <Exec WorkingDirectory="$(NativeWsProjectDir)"
-          Command="cargo build $(NativeWsCargoReleaseArg)" />
+          Command="cargo build --target $(NativeWsMacUniversalX64Target) $(NativeWsCargoReleaseArg)"
+          Condition="'$(NativeWsMacUniversalBuild)' == 'true'" />
+    <Exec WorkingDirectory="$(NativeWsProjectDir)"
+          Command="cargo build --target $(NativeWsMacUniversalArm64Target) $(NativeWsCargoReleaseArg)"
+          Condition="'$(NativeWsMacUniversalBuild)' == 'true'" />
+    <Exec WorkingDirectory="$(NativeWsProjectDir)"
+          Command="lipo -create -output &quot;$(NativeWsNativeSourcePath)&quot; &quot;$(NativeWsProjectDir)/target/$(NativeWsMacUniversalX64Target)/$(NativeWsCargoProfile)/$(NativeWsNativeSourceName)&quot; &quot;$(NativeWsProjectDir)/target/$(NativeWsMacUniversalArm64Target)/$(NativeWsCargoProfile)/$(NativeWsNativeSourceName)&quot;"
+          Condition="'$(NativeWsMacUniversalBuild)' == 'true'" />
+    <Exec WorkingDirectory="$(NativeWsProjectDir)"
+          Command="cargo build $(NativeWsCargoTargetArg) $(NativeWsCargoReleaseArg)"
+          Condition="'$(NativeWsMacUniversalBuild)' != 'true'" />
   </Target>
 
   <Target Name="CopyNativeWsNative"
@@ -67,11 +115,11 @@
           SkipUnchangedFiles="true" />
     <Message Importance="high"
              Text="Copying native symbols $(NativeWsNativePdbSourcePath) -> $(NativeWsNativePdbDestPath)"
-             Condition="'$(Configuration)' == 'Debug' and $([MSBuild]::IsOSPlatform('Windows')) and Exists('$(NativeWsNativePdbSourcePath)')" />
+             Condition="'$(Configuration)' == 'Debug' and '$(NativeWsTargetOs)' == 'windows' and Exists('$(NativeWsNativePdbSourcePath)')" />
     <Copy SourceFiles="$(NativeWsNativePdbSourcePath)"
           DestinationFiles="$(NativeWsNativePdbDestPath)"
           SkipUnchangedFiles="true"
-          Condition="'$(Configuration)' == 'Debug' and $([MSBuild]::IsOSPlatform('Windows')) and Exists('$(NativeWsNativePdbSourcePath)')" />
+          Condition="'$(Configuration)' == 'Debug' and '$(NativeWsTargetOs)' == 'windows' and Exists('$(NativeWsNativePdbSourcePath)')" />
   </Target>
 
   <Target Name="CopyNativeWsLicenses"
@@ -87,6 +135,9 @@
       <BundledLicense Include="$(RootLicensePath)" Condition="Exists('$(RootLicensePath)')">
         <DestName>$(BundledRootLicenseName)</DestName>
       </BundledLicense>
+      <BundledLicense Include="$(RootThirdPartyLicensePath)" Condition="Exists('$(RootThirdPartyLicensePath)')">
+        <DestName>$(BundledRootThirdPartyLicenseName)</DestName>
+      </BundledLicense>
       <BundledLicense Include="$(NativeWsLicensePath)" Condition="Exists('$(NativeWsLicensePath)')">
         <DestName>$(BundledNativeWsLicenseName)</DestName>
       </BundledLicense>
@@ -98,6 +149,9 @@
     <ReadLinesFromFile File="$(RootLicensePath)" Condition="Exists('$(RootLicensePath)')">
       <Output TaskParameter="Lines" ItemName="RootLicenseLines" />
     </ReadLinesFromFile>
+    <ReadLinesFromFile File="$(RootThirdPartyLicensePath)" Condition="Exists('$(RootThirdPartyLicensePath)')">
+      <Output TaskParameter="Lines" ItemName="RootThirdPartyLicenseLines" />
+    </ReadLinesFromFile>
     <ReadLinesFromFile File="$(NativeWsLicensePath)" Condition="Exists('$(NativeWsLicensePath)')">
       <Output TaskParameter="Lines" ItemName="NativeWsLicenseLines" />
     </ReadLinesFromFile>
@@ -107,6 +161,7 @@
 
     <ItemGroup>
       <RootBundledLicenseLines Include="@(RootLicenseLines->Replace('native/LICENSE.3rd-party.txt', '$(BundledNativeWsThirdPartyLicenseName)')->Replace('native/LICENSE', '$(BundledNativeWsLicenseName)'))" />
+      <RootThirdPartyBundledLicenseLines Include="@(RootThirdPartyLicenseLines)" />
       <NativeWsBundledLicenseLines Include="@(NativeWsLicenseLines)" />
       <NativeWsThirdPartyBundledLicenseLines Include="@(NativeWsThirdPartyLicenseLines->Replace('See LICENSE.txt', 'See $(BundledNativeWsLicenseName)'))" />
     </ItemGroup>
@@ -116,6 +171,11 @@
                       Lines="@(RootBundledLicenseLines)"
                       Overwrite="true"
                       Condition="Exists('$(RootLicensePath)')" />
+    <Message Importance="high" Text="Bundling license $(RootThirdPartyLicensePath) -> $(NativeWsManagedOutputDir)$(BundledRootThirdPartyLicenseName)" Condition="Exists('$(RootThirdPartyLicensePath)')" />
+    <WriteLinesToFile File="$(NativeWsManagedOutputDir)$(BundledRootThirdPartyLicenseName)"
+                      Lines="@(RootThirdPartyBundledLicenseLines)"
+                      Overwrite="true"
+                      Condition="Exists('$(RootThirdPartyLicensePath)')" />
     <Message Importance="high" Text="Bundling license $(NativeWsLicensePath) -> $(NativeWsManagedOutputDir)$(BundledNativeWsLicenseName)" Condition="Exists('$(NativeWsLicensePath)')" />
     <WriteLinesToFile File="$(NativeWsManagedOutputDir)$(BundledNativeWsLicenseName)"
                       Lines="@(NativeWsBundledLicenseLines)"
@@ -126,6 +186,27 @@
                       Lines="@(NativeWsThirdPartyBundledLicenseLines)"
                       Overwrite="true"
                       Condition="Exists('$(NativeWsThirdPartyLicensePath)')" />
+  </Target>
+
+  <Target Name="CleanNativeWsNative"
+          AfterTargets="Clean"
+          Condition="'$(DesignTimeBuild)' != 'true' and ('$(IsCrossTargetingBuild)' == 'true' or '$(TargetFrameworks)' == '')">
+    <ItemGroup>
+      <NativeWsManagedArtifact Include="$(MSBuildProjectDirectory)\bin\**\nativews-*.dll" />
+      <NativeWsManagedArtifact Include="$(MSBuildProjectDirectory)\bin\**\nativews-*.pdb" />
+      <NativeWsManagedArtifact Include="$(MSBuildProjectDirectory)\bin\**\nativews-*.so" />
+      <NativeWsManagedArtifact Include="$(MSBuildProjectDirectory)\bin\**\nativews-*.dylib" />
+      <NativeWsManagedArtifact Include="$(MSBuildProjectDirectory)\bin\**\LICENSE.txt" />
+      <NativeWsManagedArtifact Include="$(MSBuildProjectDirectory)\bin\**\LICENSE.third-party.txt" />
+      <NativeWsManagedArtifact Include="$(MSBuildProjectDirectory)\bin\**\LICENSE.nativews.txt" />
+      <NativeWsManagedArtifact Include="$(MSBuildProjectDirectory)\bin\**\LICENSE.nativews.3rd-party.txt" />
+    </ItemGroup>
+    <Delete Files="@(NativeWsManagedArtifact)"
+            TreatErrorsAsWarnings="true" />
+    <Exec WorkingDirectory="$(NativeWsProjectDir)"
+          Command="cargo clean" />
+    <RemoveDir Directories="$(NativeWsProjectDir)/target/macos-universal"
+               Condition="Exists('$(NativeWsProjectDir)/target/macos-universal')" />
   </Target>
 
 </Project>

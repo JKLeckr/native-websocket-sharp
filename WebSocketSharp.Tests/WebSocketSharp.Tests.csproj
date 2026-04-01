@@ -8,6 +8,15 @@
     <RootNamespace>WebSocketSharp.Tests</RootNamespace>
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <NativeWsTestRuntimeName Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(PROCESSOR_ARCHITECTURE)' == 'x86'">nativews-win32.dll</NativeWsTestRuntimeName>
+    <NativeWsTestRuntimeName Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(PROCESSOR_ARCHITECTURE)' == 'ARM64'">nativews-winarm64.dll</NativeWsTestRuntimeName>
+    <NativeWsTestRuntimeName Condition="$([MSBuild]::IsOSPlatform('Windows')) and '$(NativeWsTestRuntimeName)' == ''">nativews-win64.dll</NativeWsTestRuntimeName>
+    <NativeWsTestRuntimeName Condition="$([MSBuild]::IsOSPlatform('Linux')) and ('$(PROCESSOR_ARCHITECTURE)' == 'arm64' or '$(PROCESSOR_ARCHITECTURE)' == 'aarch64')">nativews-linux-arm64.so</NativeWsTestRuntimeName>
+    <NativeWsTestRuntimeName Condition="$([MSBuild]::IsOSPlatform('Linux')) and '$(NativeWsTestRuntimeName)' == ''">nativews-linux-amd64.so</NativeWsTestRuntimeName>
+    <NativeWsTestRuntimeName Condition="$([MSBuild]::IsOSPlatform('OSX'))">nativews-macos-universal.dylib</NativeWsTestRuntimeName>
+    <NativeWsTestPdbName Condition="'$(NativeWsTestRuntimeName)' == 'nativews-win32.dll'">nativews-win32.pdb</NativeWsTestPdbName>
+    <NativeWsTestPdbName Condition="'$(NativeWsTestRuntimeName)' == 'nativews-win64.dll'">nativews-win64.pdb</NativeWsTestPdbName>
+    <NativeWsTestPdbName Condition="'$(NativeWsTestRuntimeName)' == 'nativews-winarm64.dll'">nativews-winarm64.pdb</NativeWsTestPdbName>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,5 +35,33 @@
     <ProjectReference Include="../WebSocketSharp/websocket-sharp.csproj" />
     <ProjectReference Include="../wsmini/WSMini.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
+
+  <Target Name="CopyNativeWsRuntimeForTests" AfterTargets="Build">
+    <ItemGroup>
+      <NativeWsRuntime Include="..\WebSocketSharp\bin\$(Configuration)\netstandard2.0\$(NativeWsTestRuntimeName)"
+                       Condition="'$(NativeWsTestRuntimeName)' != '' and Exists('..\WebSocketSharp\bin\$(Configuration)\netstandard2.0\$(NativeWsTestRuntimeName)')" />
+      <NativeWsRuntime Include="..\WebSocketSharp\bin\$(Configuration)\netstandard2.0\$(NativeWsTestPdbName)"
+                       Condition="'$(NativeWsTestPdbName)' != '' and Exists('..\WebSocketSharp\bin\$(Configuration)\netstandard2.0\$(NativeWsTestPdbName)')" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(NativeWsRuntime)"
+          DestinationFolder="$(TargetDir)"
+          SkipUnchangedFiles="true"
+          Condition="'@(NativeWsRuntime)' != ''" />
+  </Target>
+
+  <Target Name="CleanNativeWsRuntimeForTests"
+          AfterTargets="Clean"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <NativeWsTestArtifact Include="$(MSBuildProjectDirectory)\bin\**\nativews-*.dll" />
+      <NativeWsTestArtifact Include="$(MSBuildProjectDirectory)\bin\**\nativews-*.pdb" />
+      <NativeWsTestArtifact Include="$(MSBuildProjectDirectory)\bin\**\nativews-*.so" />
+      <NativeWsTestArtifact Include="$(MSBuildProjectDirectory)\bin\**\nativews-*.dylib" />
+    </ItemGroup>
+
+    <Delete Files="@(NativeWsTestArtifact)"
+            TreatErrorsAsWarnings="true" />
+  </Target>
 
 </Project>

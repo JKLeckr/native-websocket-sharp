@@ -5,6 +5,8 @@
 
 /ref/
 
+tmp/
+
 # Backup files
 *.bak
 
