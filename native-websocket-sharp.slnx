@@ -2,8 +2,8 @@
   <Folder Name="/WebSocketSharp/">
     <Project Path="WebSocketSharp/websocket-sharp.csproj" />
   </Folder>
-  <Folder Name="/wsmini/">
-    <Project Path="wsmini/WSMini.csproj" />
+  <Folder Name="/WSMini/">
+    <Project Path="WSMini/WSMini.csproj" />
   </Folder>
   <Project Path="WebSocketSharp.Tests/WebSocketSharp.Tests.csproj" />
 </Solution>

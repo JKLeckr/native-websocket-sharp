@@ -1,0 +1,349 @@
+name: Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Tag to publish draft release assets to (required for manual runs)"
+        required: false
+        type: string
+  push:
+    tags:
+      - "v*"
+      - "!*norel*"
+
+jobs:
+  prepare-release:
+    name: prepare-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      release_tag: ${{ steps.meta.outputs.release_tag }}
+
+    steps:
+      - name: Resolve release tag
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="${{ github.event.inputs.release_tag }}"
+          fi
+          if [[ -z "${TAG}" ]]; then
+            echo "No release tag available. For workflow_dispatch, provide inputs.release_tag."
+            exit 1
+          fi
+          echo "release_tag=${TAG}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.meta.outputs.release_tag }}
+          draft: true
+          prerelease: false
+          name: native-websocket-sharp ${{ steps.meta.outputs.release_tag }}
+          token: ${{ github.token }}
+
+
+  build-windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - {managed_arch: x64, os_id: windows-x64, rid_dir: win-x64, rust_target: x86_64-pc-windows-msvc}
+        tfm: ["net35", "net40"]
+        include:
+          - os: {managed_arch: x86, os_id: windows-x86, rid_dir: win-x86, rust_target: i686-pc-windows-msvc}
+            tfm: "net35"
+          - os: {managed_arch: x86, os_id: windows-x86, rid_dir: win-x86, rust_target: i686-pc-windows-msvc}
+            tfm: "net40"
+
+    name: build-windows ${{ matrix.os.os_id }} ${{ matrix.tfm }}
+    runs-on: windows-latest
+    needs: prepare-release
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: ${{ matrix.os.rust_target }}
+
+      - name: Setup Rust tools
+        run: |
+            cargo install cargo-bundle-licenses
+
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore + clean
+        run: |
+          dotnet restore
+          dotnet clean
+
+      - name: Build websocket-sharp
+        run: |
+          dotnet build .\WebSocketSharp\websocket-sharp.csproj -c Release -f ${{ matrix.tfm }} --arch ${{ matrix.os.managed_arch }}
+
+      - name: Generate nativews third-party license manifest
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path .\build\licenses | Out-Null
+          Push-Location .\nativews
+          cargo bundle-licenses --format yaml --output ..\build\licenses\nativews-THIRDPARTY.yaml
+          Pop-Location
+
+      - name: Create zip bundle
+        id: pack
+        shell: pwsh
+        run: |
+          $tag = "${{ needs.prepare-release.outputs.release_tag }}"
+          $osId = "${{ matrix.os.os_id }}"
+          $tfm = "${{ matrix.tfm }}"
+          $ridDir = "${{ matrix.os.rid_dir }}"
+          $name = "native-websocket-sharp_${tag}_${osId}_${tfm}"
+          $zipName = "$name.zip"
+
+          $src = Join-Path $PWD "WebSocketSharp/bin/Release/$tfm/$ridDir"
+          $buildDir = Join-Path $PWD "build"
+          $pkgDir = Join-Path $buildDir $name
+          $zipPath = Join-Path $buildDir $zipName
+
+          if (Test-Path $pkgDir) { Remove-Item $pkgDir -Recurse -Force }
+          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+          New-Item -ItemType Directory -Force -Path $pkgDir | Out-Null
+
+          Copy-Item (Join-Path $src '*') -Destination $pkgDir -Recurse -Force
+          $licDir = Join-Path $pkgDir "licenses"
+          New-Item -ItemType Directory -Force -Path $licDir | Out-Null
+          Copy-Item ".\LICENSE.txt" -Destination (Join-Path $licDir "LICENSE.txt") -Force
+          Copy-Item ".\LICENSE.third-party.txt" -Destination (Join-Path $licDir "LICENSE.third-party.txt") -Force
+          Copy-Item ".\build\licenses\nativews-THIRDPARTY.yaml" -Destination (Join-Path $licDir "nativews-THIRDPARTY.yaml") -Force
+          @(
+            "LICENSE.txt",
+            "LICENSE.third-party.txt",
+            "nativews-THIRDPARTY.yaml"
+          ) | ForEach-Object {
+            $rootFile = Join-Path $pkgDir $_
+            if (Test-Path $rootFile) { Remove-Item $rootFile -Force }
+          }
+          Compress-Archive -Path $pkgDir -DestinationPath $zipPath -Force
+
+          "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
+
+      - name: Upload zip to draft release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.prepare-release.outputs.release_tag }}
+          draft: true
+          prerelease: false
+          name: native-websocket-sharp ${{ needs.prepare-release.outputs.release_tag }}
+          token: ${{ github.token }}
+          files: |
+              ${{ steps.pack.outputs.zip_path }}
+
+  build-linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-24.04"]
+        tfm: ["net35", "net40"]
+        include:
+          - os: "ubuntu-22.04"
+            tfm: "net35"
+          - os: "ubuntu-22.04"
+            tfm: "net40"
+
+    name: build-linux ${{ matrix.os }} ${{ matrix.tfm }}
+    runs-on: ${{ matrix.os }}
+    needs: prepare-release
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Setup Rust tools
+        run: |
+            cargo install cargo-bundle-licenses
+
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore + clean
+        run: |
+          dotnet restore
+          dotnet clean
+
+      - name: Build websocket-sharp
+        run: |
+          dotnet build ./WebSocketSharp/websocket-sharp.csproj -c Release -f ${{ matrix.tfm }} --no-restore
+
+      - name: Generate nativews third-party license manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/licenses
+          (
+            cd nativews
+            cargo bundle-licenses --format yaml --output ../build/licenses/nativews-THIRDPARTY.yaml
+          )
+
+      - name: Create zip bundle
+        id: pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ needs.prepare-release.outputs.release_tag }}"
+          OS_ID="${{ matrix.os }}"
+          TFM="${{ matrix.tfm }}"
+          NAME="native-websocket-sharp_${TAG}_${OS_ID}_${TFM}"
+          ZIP_NAME="${NAME}.zip"
+
+          SRC="WebSocketSharp/bin/Release/${TFM}"
+          BUILD_DIR="build"
+          PKG_DIR="${BUILD_DIR}/${NAME}"
+          ZIP_PATH="${BUILD_DIR}/${ZIP_NAME}"
+
+          rm -rf "${PKG_DIR}" "${ZIP_PATH}"
+          mkdir -p "${PKG_DIR}"
+          cp -R "${SRC}/." "${PKG_DIR}/"
+          mkdir -p "${PKG_DIR}/licenses"
+          cp LICENSE.txt "${PKG_DIR}/licenses/LICENSE.txt"
+          cp LICENSE.third-party.txt "${PKG_DIR}/licenses/LICENSE.third-party.txt"
+          cp build/licenses/nativews-THIRDPARTY.yaml "${PKG_DIR}/licenses/nativews-THIRDPARTY.yaml"
+          rm -f \
+            "${PKG_DIR}/LICENSE.txt" \
+            "${PKG_DIR}/LICENSE.third-party.txt" \
+            "${PKG_DIR}/nativews-THIRDPARTY.yaml"
+          (cd "${BUILD_DIR}" && zip -r "${ZIP_NAME}" "${NAME}")
+
+          echo "zip_path=${ZIP_PATH}" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload zip to draft release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.prepare-release.outputs.release_tag }}
+          draft: true
+          prerelease: false
+          name: native-websocket-sharp ${{ needs.prepare-release.outputs.release_tag }}
+          token: ${{ github.token }}
+          files: |
+              ${{ steps.pack.outputs.zip_path }}
+
+  build-macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        tfm: ["net35", "net40"]
+
+    name: build-macos macos-universal ${{ matrix.tfm }}
+    runs-on: macos-15
+    needs: prepare-release
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Setup Rust tools
+        run: |
+            cargo install cargo-bundle-licenses
+
+      - name: Restore + clean
+        run: |
+          dotnet restore
+          dotnet clean
+
+      - name: Build macOS nativews targets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --release --manifest-path nativews/Cargo.toml --target aarch64-apple-darwin
+          cargo build --release --manifest-path nativews/Cargo.toml --target x86_64-apple-darwin
+
+      - name: Build websocket-sharp
+        run: |
+          dotnet build ./WebSocketSharp/websocket-sharp.csproj -c Release -f ${{ matrix.tfm }}
+
+      - name: Generate nativews third-party license manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/macos-prep
+          (
+            cd nativews
+            cargo bundle-licenses --format yaml --output ../build/macos-prep/nativews-THIRDPARTY.yaml
+          )
+
+      - name: Create zip bundle
+        id: pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ needs.prepare-release.outputs.release_tag }}"
+          OS_ID="macos-universal"
+          TFM="${{ matrix.tfm }}"
+          NAME="native-websocket-sharp_${TAG}_${OS_ID}_${TFM}"
+          ZIP_NAME="${NAME}.zip"
+
+          SRC_RUNTIME="WebSocketSharp/bin/Release/${TFM}"
+          SRC_THIRDPARTY="build/macos-prep/nativews-THIRDPARTY.yaml"
+          BUILD_DIR="build"
+          PKG_DIR="${BUILD_DIR}/${NAME}"
+          ZIP_PATH="${BUILD_DIR}/${ZIP_NAME}"
+
+          rm -rf "${PKG_DIR}" "${ZIP_PATH}"
+          mkdir -p "${PKG_DIR}"
+          cp -R "${SRC_RUNTIME}/." "${PKG_DIR}/"
+          mkdir -p "${PKG_DIR}/licenses"
+          cp LICENSE.txt "${PKG_DIR}/licenses/LICENSE.txt"
+          cp LICENSE.third-party.txt "${PKG_DIR}/licenses/LICENSE.third-party.txt"
+          cp "${SRC_THIRDPARTY}" "${PKG_DIR}/licenses/nativews-THIRDPARTY.yaml"
+          rm -f \
+            "${PKG_DIR}/LICENSE.txt" \
+            "${PKG_DIR}/LICENSE.third-party.txt" \
+            "${PKG_DIR}/nativews-THIRDPARTY.yaml"
+          (cd "${BUILD_DIR}" && zip -r "${ZIP_NAME}" "${NAME}")
+
+          echo "zip_path=${ZIP_PATH}" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload zip to draft release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.prepare-release.outputs.release_tag }}
+          draft: true
+          prerelease: false
+          name: native-websocket-sharp ${{ needs.prepare-release.outputs.release_tag }}
+          token: ${{ github.token }}
+          files: |
+              ${{ steps.pack.outputs.zip_path }}
