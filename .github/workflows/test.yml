@@ -33,9 +33,9 @@ jobs:
 
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
-
-      - name: Cache cargo artifacts
-        uses: Swatinem/rust-cache@v2
+        with:
+          rust-src-dir: ./nativews
+          cache: ${{ vars.RUST_CACHE_BYPASS != 'true' }}
 
       - name: Setup dotnet
         uses: actions/setup-dotnet@v5
@@ -72,9 +72,10 @@ jobs:
 
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
-
-      - name: Cache cargo artifacts
-        uses: Swatinem/rust-cache@v2
+        with:
+          rust-src-dir: ./nativews
+          cache: ${{ vars.RUST_CACHE_BYPASS != 'true' }}
+          cache-key: ${{ matrix.os }}
 
       - name: Setup dotnet
         uses: actions/setup-dotnet@v5
@@ -107,10 +108,9 @@ jobs:
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
+          rust-src-dir: ./nativews
           target: aarch64-apple-darwin,x86_64-apple-darwin
-
-      - name: Cache cargo artifacts
-        uses: Swatinem/rust-cache@v2
+          cache: ${{ vars.RUST_CACHE_BYPASS != 'true' }}
 
       - name: Setup dotnet
         uses: actions/setup-dotnet@v5

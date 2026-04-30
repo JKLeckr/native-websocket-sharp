@@ -6,14 +6,14 @@ on:
       - "**.rs"
       - "**/Cargo.toml"
       - "**/Cargo.lock"
-      - ".github/workflows/test.yml"
+      - ".github/workflows/rs-test.yml"
   pull_request:
     branches: [ "main" ]
     paths:
       - "**.rs"
       - "**/Cargo.toml"
       - "**/Cargo.lock"
-      - ".github/workflows/test.yml"
+      - ".github/workflows/rs-test.yml"
   workflow_dispatch:
 
 env:
@@ -56,12 +56,10 @@ jobs:
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
+          rust-src-dir: ./nativews
           target: ${{ matrix.target }}
-
-      - name: Cache cargo artifacts
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: nativews -> target
+          cache: ${{ vars.RUST_CACHE_BYPASS != 'true' }}
+          cache-key: ${{ matrix.os }}-${{ matrix.target }}
 
       - name: Fetch
         working-directory: ./nativews
