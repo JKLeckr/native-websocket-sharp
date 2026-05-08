@@ -1,6 +1,6 @@
 # native-websocket-sharp
 
-This is a partial implementation of websocket-sharp that acts as a drop-in replacement for the original library. Unlike the original websocket-sharp, this implementation is instead powered by a native websocket library written in Rust. This is to ensure older .NET Framework versions can use later TLS versions and compression.
+This is a partial implementation of [websocket-sharp](https://github.com/sta/websocket-sharp) that acts as a drop-in replacement for the original library. Unlike the original websocket-sharp, this implementation is instead powered by a native websocket library written in Rust. This is to ensure older .NET Framework versions can use later TLS versions and compression.
 
 This library is mainly designed for [Archipelago.MultiClient.NET](https://github.com/ArchipelagoMW/Archipelago.MultiClient.Net) and will focus on implementation of the parts that are used in its [websocket-sharp helper](https://github.com/ArchipelagoMW/Archipelago.MultiClient.Net/blob/main/Archipelago.MultiClient.Net/Helpers/ArchipelagoSocketHelper_websocket-sharp.cs).
 
