@@ -7,7 +7,7 @@ proj_dir := 'WebSocketSharp'
 solution_name := 'native-websocket-sharp.slnx'
 unit_test_dir := 'WebSocketSharp.Tests'
 #unit_test_proj_name := 'WebSocketSharp.Tests'
-test_server_dir := 'wsmini'
+test_server_dir := 'WSMini'
 #test_server_name := 'WSMini'
 native_cargo_target := if os() == 'windows' {
     if arch() == 'x86' {
