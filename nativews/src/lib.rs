@@ -640,7 +640,7 @@ impl InnerClient {
                 if secure {
                     self.record_error(
                         nws_error_kind::NWS_ERR_INTERNAL,
-                        "Secure handshake unexpectedly returned an interrupted state.".to_owned(),
+                        "secure handshake unexpectedly returned an interrupted state".to_owned(),
                     );
                     self.state = State::Closed;
                 } else {
@@ -649,7 +649,21 @@ impl InnerClient {
             }
             Err(HandshakeError::Failure(err)) => {
                 log_native(LOG_ERROR, format!("client_tls_with_config failed: {err}"));
-                self.record_error(map_ws_error_kind(&err, true), err.to_string());
+                if secure && let Some(tls_err) = rustls_error_from_ws_error(&err) {
+                    let message = if matches!(
+                        tls_err,
+                        rustls::Error::InvalidMessage(rustls::InvalidMessage::InvalidContentType)
+                    ) {
+                        "tls handshake failed because the server returned data that is not valid tls; the endpoint may not support tls"
+                            .to_owned()
+                    } else {
+                        err.to_string()
+                    };
+
+                    self.record_error(nws_error_kind::NWS_ERR_TLS_FAILED, message);
+                } else {
+                    self.record_error(map_ws_error_kind(&err, true), err.to_string());
+                }
                 self.state = State::Closed;
             }
         }
@@ -674,7 +688,7 @@ fn connect_tcp(uri: &Uri, timeout: Duration) -> io::Result<TcpStream> {
     let host = uri.host().ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidInput,
-            "The URL does not include a host name.",
+            "url does not include a host name",
         )
     })?;
     let port = uri.port_u16().unwrap_or_else(|| match uri.scheme_str() {
@@ -683,7 +697,7 @@ fn connect_tcp(uri: &Uri, timeout: Duration) -> io::Result<TcpStream> {
     });
 
     let addrs = (host, port).to_socket_addrs()?;
-    let mut last_error = io::Error::new(io::ErrorKind::NotFound, "No socket addresses resolved.");
+    let mut last_error = io::Error::new(io::ErrorKind::NotFound, "no socket addresses resolved");
     for addr in addrs {
         match TcpStream::connect_timeout(&addr, timeout) {
             Ok(stream) => return Ok(stream),
@@ -788,12 +802,22 @@ fn pop_event_locked(inner: &mut InnerClient, out_event: &mut nws_event) -> nws_r
     }
 }
 
+fn rustls_error_from_ws_error(err: &WsError) -> Option<&rustls::Error> {
+    let WsError::Io(io_err) = err else {
+        return None;
+    };
+
+    io_err
+        .get_ref()
+        .and_then(|source| source.downcast_ref::<rustls::Error>())
+}
+
 fn set_socket_nonblocking(stream: &mut MaybeTlsStream<TcpStream>) -> io::Result<()> {
     match stream {
         MaybeTlsStream::Plain(socket) => socket.set_nonblocking(true),
         MaybeTlsStream::Rustls(socket) => socket.get_mut().set_nonblocking(true),
         _ => Err(io::Error::other(
-            "Unsupported TLS stream variant for nonblocking mode.",
+            "unsupported tls stream variant for nonblocking mode",
         )),
     }
 }
