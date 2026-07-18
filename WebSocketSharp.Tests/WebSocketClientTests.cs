@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Text;
 using System.Diagnostics;
@@ -224,9 +225,11 @@ public sealed class WebSocketClientTests
         using PlainHttpFailureServer server = new PlainHttpFailureServer();
         using WebSocket socket = new WebSocket(string.Format("wss://127.0.0.1:{0}/ws", server.Url.Port));
         ManualResetEvent errorReceived = new ManualResetEvent(false);
+        ErrorEventArgs receivedError = null;
 
-        socket.OnError += delegate
+        socket.OnError += delegate(object sender, ErrorEventArgs e)
         {
+            receivedError = e;
             errorReceived.Set();
         };
 
@@ -235,6 +238,12 @@ public sealed class WebSocketClientTests
         stopwatch.Stop();
 
         Assert.True(errorReceived.WaitOne(TimeSpan.FromSeconds(2)));
+        Assert.NotNull(receivedError);
+        Assert.IsType<AuthenticationException>(receivedError.Exception);
+        Assert.Equal(
+            "tls handshake failed because the server returned data that is not valid tls; " +
+            "the endpoint may not support tls",
+            receivedError.Message);
         Assert.Equal(WebSocketState.Closed, socket.ReadyState);
         Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(2));
     }
@@ -273,6 +282,12 @@ public sealed class WebSocketClientTests
             {
                 using TcpClient client = await _listener.AcceptTcpClientAsync();
                 using NetworkStream stream = client.GetStream();
+                byte[] request = new byte[4096];
+                int bytesRead = await stream.ReadAsync(request, 0, request.Length);
+                if (bytesRead == 0)
+                {
+                    return;
+                }
                 byte[] response = Encoding.ASCII.GetBytes("HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n");
                 await stream.WriteAsync(response, 0, response.Length);
                 await stream.FlushAsync();
