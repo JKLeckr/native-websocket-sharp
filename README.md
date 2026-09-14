@@ -9,12 +9,18 @@ This library is mainly designed for [Archipelago.MultiClient.NET](https://github
 ### Prerequisites:
 - [.NET SDK](https://dotnet.microsoft.com/en-us/download) 10 or greater. You need the `dotnet` program in your path.
 
+### Get
+```sh
+git clone --recursive https://github.com/JKLeckr/native-websocket-sharp
+```
+
 ### Build
 #### Use just to build on the websocket-sharp project:
 ```sh
 just setup
 just build
 ```
+_**Note:** macOS builds require both x86_64 and aarch64 rust toolchains enabled. Do that by running: `rustup target add x86_64-apple-darwin aarch64-apple-darwin`_
 
 ## How to test:
 ```sh

@@ -9,63 +9,41 @@ unit_test_dir := 'WebSocketSharp.Tests'
 #unit_test_proj_name := 'WebSocketSharp.Tests'
 test_server_dir := 'WSMini'
 #test_server_name := 'WSMini'
-native_cargo_target := if os() == 'windows' {
-    if arch() == 'x86' {
-        'i686-pc-windows-msvc'
-    } else if arch() == 'aarch64' {
-        'aarch64-pc-windows-msvc'
-    } else {
-        'x86_64-pc-windows-msvc'
-    }
-} else if os() == 'macos' {
-    if arch() == 'aarch64' {
-        'aarch64-apple-darwin'
-    } else {
-        'x86_64-apple-darwin'
-    }
-} else if arch() == 'aarch64' {
-    'aarch64-unknown-linux-gnu'
-} else {
-    'x86_64-unknown-linux-gnu'
-}
+dotnet_flags :=  '-m:1'
 
 default:
     @just --list
 
 [working-directory: 'nativews']
-setup-native:
+_setup-native:
     cargo fetch
 
 setup:
-    @just setup-native
+    @just _setup-native
     dotnet restore ./{{ solution_name }} -m:1
 
-[working-directory: 'nativews']
-build-native config='Debug' target=native_cargo_target:
-    cargo build --target {{ target }} {{ if config == 'Release' { '--release' } else { '' } }}
+build config='Debug' framework='' flags=dotnet_flags:
+    dotnet build {{ proj_dir }} -c {{ config }} {{ if framework != '' { '-f ' + framework } else { '' } }} {{ flags }}
 
-build config='Debug' framework='':
-    dotnet build {{ proj_dir }} -c {{ config }} {{ if framework != '' { '-f ' + framework } else { '' } }}
+build-tests config='Debug' framework='' flags=dotnet_flags:
+    dotnet build {{ unit_test_dir }} -c {{ config }} {{ if framework != '' { '-f ' + framework } else { '' } }} {{ flags }}
 
-build-tests config='Debug' framework='':
-    dotnet build {{ unit_test_dir }} -c {{ config }} {{ if framework != '' { '-f ' + framework } else { '' } }}
-
-build-all config='Debug':
-    dotnet build ./{{ solution_name }} -c {{ config }} -m:1
+build-all config='Debug' flags=dotnet_flags:
+    dotnet build ./{{ solution_name }} -c {{ config }} {{ flags }}
 
 [working-directory: 'nativews']
-clean-native:
+_clean-native:
     cargo clean
 
 clean:
-    @just clean-native
-    dotnet clean ./{{ solution_name }}
+    @just _clean-native
+    dotnet clean ./{{ solution_name }} -m:1
 
-run-test-server:
-    dotnet run --project {{ test_server_dir }} --framework net10.0
+run-test-server flags=dotnet_flags:
+    dotnet run --project {{ test_server_dir }} --framework net10.0 {{ flags }}
 
-test:
-    dotnet test --project {{ unit_test_dir }} -c Debug -f net10.0
+test flags=dotnet_flags:
+    dotnet test --project {{ unit_test_dir }} -c Debug -f net10.0 {{ flags }}
 
 test-unit:
     @just test
