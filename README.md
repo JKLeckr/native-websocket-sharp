@@ -18,8 +18,13 @@ git clone --recursive https://github.com/JKLeckr/native-websocket-sharp
 ### Build
 #### Use just to build on the websocket-sharp project:
 ```sh
+# Setup the build environment
 just setup
-just build
+
+# Build it.
+# Format is: 'just build config='Debug' framework='' flags=dotnet_flags'
+# "framework" can be 'net35', 'net40', and 'netstandard2.0'
+just build Debug net35
 ```
 _**Note:** macOS builds require both x86_64 and aarch64 rust toolchains enabled. Do that by running: `rustup target add x86_64-apple-darwin aarch64-apple-darwin`_
 
