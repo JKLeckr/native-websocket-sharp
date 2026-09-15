@@ -260,7 +260,7 @@ jobs:
         tfm: ["net35", "net40"]
 
     name: build-macos macos-universal ${{ matrix.tfm }}
-    runs-on: macos-15
+    runs-on: macos-26
     needs: prepare-release
     permissions:
       contents: write
@@ -300,7 +300,7 @@ jobs:
 
       - name: Build websocket-sharp
         run: |
-          dotnet build ./WebSocketSharp/websocket-sharp.csproj -c Release -f ${{ matrix.tfm }}
+          dotnet build ./WebSocketSharp/websocket-sharp.csproj -c Release -f ${{ matrix.tfm }} -m:1
 
       - name: Generate nativews third-party license manifest
         shell: bash
