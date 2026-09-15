@@ -40,10 +40,12 @@ clean:
     dotnet clean ./{{ solution_name }} -m:1
 
 run-test-server flags=dotnet_flags:
-    dotnet run --project {{ test_server_dir }} --framework net10.0 {{ flags }}
+    dotnet build {{ test_server_dir }} -c Debug --framework net10.0 {{ flags }}
+    dotnet run --project {{ test_server_dir }} --framework net10.0
 
 test flags=dotnet_flags:
-    dotnet test --project {{ unit_test_dir }} -c Debug -f net10.0 {{ flags }}
+    dotnet build {{ unit_test_dir }} -c Debug -f net10.0 {{ flags }}
+    dotnet test --project {{ unit_test_dir }} -c Debug -f net10.0
 
 test-unit:
     @just test
