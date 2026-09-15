@@ -8,6 +8,7 @@ This library is mainly designed for [Archipelago.MultiClient.NET](https://github
 
 ### Prerequisites:
 - [.NET SDK](https://dotnet.microsoft.com/en-us/download) 10 or greater. You need the `dotnet` program in your path.
+- [just](https://github.com/casey/just?tab=readme-ov-file#installation). You need the `just` program in your path.
 
 ### Get
 ```sh
